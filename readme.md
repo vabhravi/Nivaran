@@ -1,41 +1,46 @@
-# NIVARAN
-### AI-Powered Civic & Legal Companion for Digital Inclusion
+# Nivaran
+AI-Powered Civic & Legal Companion for Digital Inclusion
 
-Nivaran is a document intelligence platform that helps citizens understand civic and legal documents such as rental agreements, electricity bills, or government notices.
+Nivaran is an intelligent document analysis platform designed to help citizens understand complex civic and legal documents such as rental agreements, electricity bills, and government notices.
 
-Instead of using large AI APIs, Nivaran uses a **custom-trained SpaCy NLP model combined with deterministic rule-based logic** to extract meaningful entities and detect legal risks.
+The system uses a custom Natural Language Processing pipeline built with **SpaCy** and a **rule-based legal reasoning engine** to extract key contractual information and identify potential risks in documents.
 
-The platform has two main modules:
-
-1. **Civic-Ease**
-   - Simplifies civic documents
-   - Converts them into short explanations
-   - Produces audio explanations for elderly users
-
-2. **Rent-Right**
-   - Analyzes rental agreements
-   - Extracts legal clauses
-   - Flags unfair or illegal terms
+The goal of Nivaran is to reduce the legal literacy gap by transforming dense legal language into clear, actionable insights.
 
 ---
 
-# Core Philosophy
+# Core Features
 
-Nivaran follows a **Hybrid AI Architecture**
+### Rent-Right (Rental Agreement Analysis)
 
-Instead of relying on LLM APIs:
+This module analyzes rental agreements and detects problematic clauses.
 
-- Custom NLP model (SpaCy NER)
-- Deterministic legal rule engine
-- Structured entity extraction
-- Explainable risk scoring
+It automatically extracts:
 
-This makes the system:
+- Rent Amount
+- Security Deposit
+- Lock-in Period
+- Penalty Clauses
+- Payment Deadlines
+- Termination Clauses
 
-- Transparent
-- Privacy-friendly
-- Lightweight
-- Explainable
+The system evaluates extracted entities using a legal rule engine and produces a **risk score** for the agreement.
+
+---
+
+### Civic-Ease (Civic Document Simplification)
+
+This module processes government notices and civic documents and converts them into simplified explanations.
+
+Example output:
+
+Original Document Text  
+"Failure to remit the outstanding electricity dues within seven days will result in disconnection."
+
+Simplified Output  
+"You need to pay your electricity bill within 7 days to avoid disconnection."
+
+The system can optionally generate **audio explanations** for improved accessibility.
 
 ---
 
@@ -47,62 +52,129 @@ User Uploads Document
 |
 v
 Document Processing Layer
+(PDF / Image Parsing)
 |
 v
-Text Extraction (PDF / Image Parser)
+Text Normalization
 |
 v
-SpaCy NLP Pipeline
-(Custom NER Model)
+Custom NLP Pipeline (SpaCy)
 |
 v
 Entity Extraction
-(Rent, Deposit, Deadline, Lock-in)
 |
 v
-Rule Engine (Python + SQLite)
+Legal Rule Engine
 |
 v
-Risk Detection & Legal Evaluation
+Risk Detection
 |
 v
-Output Generator
-|           |
-v           v
-Risk Score   Simplified Summary
+Simplification Engine
 |
 v
-Audio Explanation
+Output Layer
+
+* Risk Score
+* Clause Flags
+* Simplified Explanation
+* Optional Audio
 
 ```
 
 ---
 
-# Technology Stack
+# NLP Model
 
-### Backend
-- Python
-- Flask
-- Flask-SocketIO
-- SpaCy (custom NLP training)
+Nivaran uses a **custom-trained SpaCy Named Entity Recognition (NER) model** specifically designed for legal contract understanding.
 
-### Database
-- SQLite
+The model is trained to detect structured legal entities within unstructured contract text.
 
-### Frontend
-- React.js
+### Extracted Entities
 
-### NLP
-- Custom SpaCy NER model
+```
 
-### Other Tools
-- Prodigy / Label Studio (annotation)
-- PyPDF / Tesseract (document text extraction)
-- gTTS / Coqui TTS (offline audio)
+RENT_AMOUNT
+DEPOSIT_AMOUNT
+LOCKIN_PERIOD
+PENALTY_CLAUSE
+DUE_DATE
+TERMINATION_CONDITION
+PAYMENT_FREQUENCY
+
+```
+
+The model processes long legal documents and extracts critical information needed for downstream analysis.
 
 ---
 
-# Repository Structure
+# Hybrid Intelligence Approach
+
+Nivaran does not rely on large language model APIs.
+
+Instead, it combines:
+
+1. **Statistical NLP (SpaCy NER)**
+2. **Deterministic rule-based legal logic**
+3. **Structured document interpretation**
+
+This hybrid architecture improves reliability and transparency when working with legal documents.
+
+---
+
+# Rule Engine
+
+After entity extraction, the system evaluates contracts using predefined legal heuristics.
+
+Example rules:
+
+```
+
+IF deposit > 2 × monthly_rent
+FLAG excessive_security_deposit
+
+IF lockin_period > 12 months
+FLAG restrictive_lockin_clause
+
+IF penalty_clause contains "non-refundable"
+FLAG financial_risk
+
+```
+
+The rule engine assigns a **risk score** and generates explanations for flagged clauses.
+
+---
+
+# Technology Stack
+
+Backend
+
+- Python
+- Flask
+- Flask-SocketIO
+- SpaCy NLP
+
+Frontend
+
+- React.js
+- WebSocket client
+
+Database
+
+- SQLite (rule storage)
+
+Document Processing
+
+- PDF parsing
+- OCR for scanned documents
+
+Audio Generation
+
+- Text-to-Speech engine
+
+---
+
+# Project Structure
 
 ```
 
@@ -113,513 +185,93 @@ app.py
 routes/
 services/
 nlp/
-train_ner.py
 spacy_pipeline.py
+entity_extractor.py
+train_model.py
+
+```
 rule_engine/
-rule_engine.py
-rules.db
-utils/
+    rules.db
+    rule_engine.py
+```
 
 frontend/
 src/
 components/
 pages/
 
-dataset/
-rental_contracts/
-civic_notices/
-
-annotations/
-
 models/
-spacy_model/
-
-docs/
-architecture.md
-
-```
-
----
-
-# Development Roadmap
-
-The project will be implemented in **phases**, each producing a working deliverable.
-
----
-
-# Phase 1 — Data Collection & Annotation
-
-### Goal
-Create a dataset to train the custom SpaCy NER model.
-
-### Tasks
-
-1 Collect rental agreements  
-2 Collect civic notices  
-3 Clean the text  
-4 Annotate legal entities
-
-### Entities to Label
-
-```
-
-RENT_AMOUNT
-DEPOSIT_AMOUNT
-DUE_DATE
-LOCKIN_PERIOD
-PENALTY_CLAUSE
-UTILITY_AMOUNT
-NOTICE_DATE
-
-```
-
-### Prompt for Implementation
-
-```
-
-Build a dataset preparation pipeline for legal document analysis.
-
-Requirements:
-
-* Input: Rental agreements and civic notices (PDF or text)
-* Clean and normalize text
-* Create annotation format compatible with SpaCy
-* Label entities such as rent, deposit, penalty clause, lock-in period, due date
-
-Output:
-Annotated dataset ready for SpaCy training.
-
-```
-
-Deliverable
-
-```
+legal_ner_model/
 
 dataset/
-annotations/
-training_data.spacy
+contracts/
+civic_documents/
 
 ```
 
 ---
 
-# Phase 2 — Train Custom SpaCy NER Model
+# Processing Pipeline
 
-### Goal
-Train a domain-specific NLP model.
+Step 1  
+User uploads a document.
 
-### Tasks
+Step 2  
+The document is converted into raw text.
 
-- Create training pipeline
-- Train SpaCy NER model
-- Evaluate accuracy
-- Save trained model
+Step 3  
+The SpaCy NLP model extracts legal entities.
 
-### Prompt for Implementation
+Step 4  
+The rule engine evaluates extracted entities.
 
-```
+Step 5  
+The system generates a risk score and highlights problematic clauses.
 
-Train a custom Named Entity Recognition model using SpaCy.
+Step 6  
+The simplification engine converts complex legal language into simple explanations.
 
-Requirements:
-
-* Input: annotated dataset of legal documents
-* Train entities:
-  RENT_AMOUNT
-  DEPOSIT_AMOUNT
-  LOCKIN_PERIOD
-  PENALTY_CLAUSE
-  DUE_DATE
-* Use SpaCy training pipeline
-* Split dataset into train/test
-* Evaluate using precision, recall, F1
-* Save model for production inference
-
-```
-
-Deliverable
-
-```
-
-models/legal_ner_model/
-
-```
-
-Expected performance
-
-```
-
-Entity extraction accuracy > 90%
-
-```
-
----
-
-# Phase 3 — Document Processing Pipeline
-
-### Goal
-Convert uploaded documents into analyzable text.
-
-### Tasks
-
-- File upload API
-- PDF parser
-- Image OCR
-- Text normalization
-
-### Prompt
-
-```
-
-Build a document processing pipeline.
-
-Requirements:
-
-* Accept PDF or image uploads
-* Extract raw text
-* Clean formatting
-* Pass the text to the SpaCy NLP model
-
-Output:
-Clean text ready for entity extraction
-
-```
-
-Deliverable
-
-```
-
-/upload API
-text extraction module
-
-```
-
----
-
-# Phase 4 — Entity Extraction Layer
-
-### Goal
-Extract legal entities using SpaCy model.
-
-### Tasks
-
-- Load trained SpaCy model
-- Extract entities
-- Structure them into JSON
-
-### Prompt
-
-```
-
-Implement an NLP inference service using the trained SpaCy model.
-
-Requirements:
-
-* Input: document text
-* Run SpaCy pipeline
-* Extract entities
-* Return structured JSON output
-
-Example Output
-
-{
-rent: 15000,
-deposit: 30000,
-lockin_period: "6 months",
-penalty_clause: "1 month rent",
-due_date: "5th of every month"
-}
-
-```
-
-Deliverable
-
-```
-
-entity_extractor.py
-
-```
-
----
-
-# Phase 5 — Legal Rule Engine
-
-### Goal
-Evaluate contracts using legal rules.
-
-### Example Rules
-
-```
-
-IF deposit > 2 * rent
-FLAG excessive deposit
-
-IF lockin_period > 12 months
-FLAG restrictive clause
-
-IF penalty_clause contains "non refundable"
-FLAG risk
-
-```
-
-### Prompt
-
-```
-
-Build a deterministic rule engine that evaluates extracted entities.
-
-Requirements:
-
-* Input: entity JSON
-* Rules stored in SQLite
-* Evaluate legal compliance
-* Return risk flags
-
-Output example
-
-{
-risk_score: 70,
-flags: [
-"Excessive deposit",
-"Lock-in period too long"
-]
-}
-
-```
-
-Deliverable
-
-```
-
-rule_engine.py
-rules.db
-
-```
-
----
-
-# Phase 6 — Simplification Engine
-
-### Goal
-Convert legal text into simple language.
-
-Example
-
-```
-
-Original:
-Tenant must deposit Rs 50,000 security refundable subject to conditions.
-
-Simplified:
-You must pay a ₹50,000 deposit before moving in.
-
-```
-
-### Prompt
-
-```
-
-Build a legal text simplification engine.
-
-Requirements:
-
-* Use rule-based templates
-* Generate short explanations
-* Avoid complex legal vocabulary
-
-```
-
-Deliverable
-
-```
-
-summary_generator.py
-
-```
-
----
-
-# Phase 7 — Audio Explanation (Civic-Ease)
-
-### Goal
-Generate spoken summaries.
-
-Example Output
-
-```
-
-"You need to pay ₹500 before Tuesday to avoid a penalty."
-
-```
-
-### Prompt
-
-```
-
-Convert simplified explanations into speech.
-
-Requirements:
-
-* Support Hindi and English
-* Output audio file
-* Optimize for elderly users
-
-```
-
-Deliverable
-
-```
-
-tts_service.py
-
-```
-
----
-
-# Phase 8 — Real-Time Analysis
-
-### Goal
-Stream document analysis updates.
-
-### Technology
-
-Flask-SocketIO
-
-### Prompt
-
-```
-
-Implement real-time processing updates using WebSockets.
-
-Requirements:
-
-* Stream analysis progress
-* Notify when clauses are detected
-* Display risk alerts
-
-```
-
-Deliverable
-
-```
-
-socket server
-live progress UI
-
-```
-
----
-
-# Phase 9 — Frontend Dashboard
-
-### Features
-
-Upload document  
-View extracted entities  
-View risk score  
-Listen to explanation  
-
-### Prompt
-
-```
-
-Build a React dashboard for Nivaran.
-
-Features:
-
-* Upload document
-* Show live analysis progress
-* Display extracted legal entities
-* Show risk flags
-* Play audio explanation
-
-```
-
-Deliverable
-
-```
-
-React web interface
-
-```
+Step 7  
+Optional audio explanation is generated for accessibility.
 
 ---
 
 # Evaluation Metrics
 
-### NLP Accuracy
-```
+Model performance is evaluated using:
 
-> 90% entity extraction accuracy
+Entity Extraction Accuracy  
+Target: >90%
 
-```
+Rule Engine Reliability  
+Zero false negatives for critical risk clauses.
 
-### Rule Engine Reliability
-```
-
-Zero false negatives for critical clauses
-
-```
-
-### Latency
-```
-
-< 5 seconds per document
-
-```
+Latency  
+Document analysis completed within 5 seconds.
 
 ---
 
-# Ethical Design
+# Privacy Design
 
-Nivaran follows strict privacy principles:
+Nivaran follows strict privacy principles.
 
-- Documents processed **in memory only**
-- No document storage
-- No personal data retention
-- Transparent rule-based decisions
+- Documents are processed only during analysis
+- No documents are stored permanently
+- Extracted data is discarded after processing
+- No external AI APIs are used
 
 ---
 
 # Future Improvements
 
-- Multilingual document understanding
-- Mobile app
-- Legal clause classification
-- Automatic clause segmentation
-- Model Tenancy Act compliance checker
+- Multilingual legal analysis
+- Mobile application
+- Clause classification models
+- Support for additional legal document types
+- Advanced risk scoring
 
 ---
 
 # Contributors
 
-Backend + NLP
-Rohit
-
-Frontend + UX
-Bhavya
-
-Project
-Nivaran Team
-```
-
----
-
-✅ This README gives you:
-
-* **Phase-wise deliverables**
-* **Implementation prompts**
-* **Architecture**
-* **Training pipeline**
-* **NLP design**
-
----
-
-💡 If you want, I can also show you:
-
-1️⃣ **Complete system architecture diagram (professional level for reports)**
-2️⃣ **SpaCy NER training pipeline for legal documents**
-3️⃣ **How to build a dataset for this project**
-4️⃣ **Rule engine design used in real legal tech startups**
-
-That would make this project **very strong for ML/NLP portfolios and research.**
+Nivaran Development Team
