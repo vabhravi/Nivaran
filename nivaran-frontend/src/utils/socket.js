@@ -1,0 +1,60 @@
+/**
+ * NIVARAN — Socket.IO Client Utility
+ * Connects to the Flask-SocketIO backend for real-time progress updates.
+ */
+
+import { io } from 'socket.io-client';
+
+const SOCKET_URL = 'http://localhost:5000';
+
+let socket = null;
+
+/**
+ * Get or create the Socket.IO connection.
+ * Returns the socket instance and manages lifecycle.
+ */
+export function getSocket() {
+  if (!socket) {
+    socket = io(SOCKET_URL, {
+      transports: ['websocket', 'polling'],
+      autoConnect: true,
+      reconnection: true,
+      reconnectionAttempts: 5,
+      reconnectionDelay: 1000,
+    });
+
+    socket.on('connect', () => {
+      console.log('[NIVARAN] Socket.IO connected:', socket.id);
+    });
+
+    socket.on('disconnect', (reason) => {
+      console.log('[NIVARAN] Socket.IO disconnected:', reason);
+    });
+
+    socket.on('connect_error', (err) => {
+      console.warn('[NIVARAN] Socket.IO connection error:', err.message);
+    });
+  }
+
+  return socket;
+}
+
+/**
+ * Get the current Socket.IO session ID (for sending with HTTP requests).
+ */
+export function getSocketId() {
+  if (socket && socket.connected) {
+    return socket.id;
+  }
+  return null;
+}
+
+/**
+ * Disconnect and cleanup the socket.
+ */
+export function disconnectSocket() {
+  if (socket) {
+    socket.disconnect();
+    socket = null;
+  }
+}
