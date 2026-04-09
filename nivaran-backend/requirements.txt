@@ -1,28 +1,26 @@
-# NIVARAN Backend Dependencies
-# Python 3.9+ required
+# ─── NIVARAN Backend Dependencies ─────────────────────
 
 # Web Framework
-Flask==3.1.0
-Flask-CORS==5.0.1
-Flask-SocketIO==5.5.1
+flask>=3.1.0
+flask-socketio>=5.3.0
+flask-cors>=4.0.0
+python-dotenv>=1.0.0
 
-# WebSocket transport
-eventlet==0.37.0
+# Async (threading mode — no eventlet needed on Python 3.14)
+# eventlet is excluded due to Python 3.14 compatibility issues
 
 # NLP Engine
-spacy
+spacy>=3.7.0
 
 # OCR via Gemini API
-google-generativeai==0.8.5
+google-generativeai>=0.5.0
 
 # Text-to-Speech
-gTTS==2.5.4
+gTTS>=2.3.0
 
-# PDF handling (for reading PDF bytes)
-PyPDF2==3.0.1
+# Document Processing
+Pillow>=10.0.0
+PyPDF2>=3.0.0
 
-# Image handling
-Pillow==11.1.0
-
-# Utilities
-python-dotenv==1.1.0
+# PDF Processing (alternative)
+# PyMuPDF>=1.23.0

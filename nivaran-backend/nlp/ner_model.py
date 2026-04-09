@@ -14,7 +14,6 @@ Falls back to regex-based extraction when trained models are not available.
 import re
 import os
 import spacy
-from spacy.tokens import DocBin
 
 # ───────────────────────────────────────────────────────
 # Model paths

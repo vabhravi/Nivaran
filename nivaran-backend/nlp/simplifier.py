@@ -14,7 +14,7 @@ from gtts import gTTS
 # ───────────────────────────────────────────────────────
 # Audio output directory
 # ───────────────────────────────────────────────────────
-AUDIO_DIR = os.path.join(os.path.dirname(__file__), '..', 'temp_audio')
+AUDIO_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'temp_audio'))
 os.makedirs(AUDIO_DIR, exist_ok=True)
 
 

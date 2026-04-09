@@ -12,8 +12,8 @@ from flask_cors import CORS
 from flask_socketio import SocketIO
 from dotenv import load_dotenv
 
-# Load environment variables from .env file
-load_dotenv()
+# Load environment variables from .env file (explicit path)
+load_dotenv(os.path.join(os.path.dirname(__file__), '.env'), override=True)
 
 # ───────────────────────────────────────────────────────
 # App Initialization
@@ -98,6 +98,26 @@ def health_check():
         'service': 'NIVARAN Backend',
         'version': '1.0.0',
         'modules': ['civic-ease', 'rent-right']
+    }, 200
+
+
+# ───────────────────────────────────────────────────────
+# Debug Endpoint (TEMPORARY — for API key diagnosis)
+# ───────────────────────────────────────────────────────
+@app.route('/api/debug/env', methods=['GET'])
+def debug_env():
+    """Temporary endpoint to verify API key is loaded."""
+    from dotenv import load_dotenv, find_dotenv
+    env_path = os.path.join(os.path.dirname(__file__), '.env')
+    load_dotenv(env_path, override=True)
+    key = os.getenv('GEMINI_API_KEY') or os.getenv('GOOGLE_API_KEY') or 'NOT FOUND'
+    env_exists = os.path.exists(env_path)
+    return {
+        'key_found': key != 'NOT FOUND' and not key.startswith('your_'),
+        'key_prefix': key[:8] + '...' if key not in ('NOT FOUND',) and not key.startswith('your_') else 'N/A',
+        'key_length': len(key) if key != 'NOT FOUND' else 0,
+        'env_file_exists': env_exists,
+        'env_file_path': env_path,
     }, 200
 
 
