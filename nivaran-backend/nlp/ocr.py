@@ -43,7 +43,9 @@ else:
 # Instead, configure on first actual use.
 # ───────────────────────────────────────────────────────
 _client_configured = False
-MODEL_NAME = 'gemini-2.0-flash'
+
+# gemini-2.5-flash: separate quota pool from 2.0-flash, good free-tier limits
+MODEL_NAME = 'gemini-2.5-flash'
 
 
 def _ensure_client():
@@ -94,67 +96,71 @@ def extract_text_from_file(file_bytes, filename, mime_type=None):
             'error': 'Gemini API key not configured. Set GEMINI_API_KEY in nivaran-backend/.env'
         }
 
-    try:
-        # Determine MIME type
-        if mime_type is None:
-            mime_type = _detect_mime_type(filename)
+    # Determine MIME type once — single API call per upload
+    if mime_type is None:
+        mime_type = _detect_mime_type(filename)
 
-        if mime_type is None:
-            return {
-                'text': '',
-                'confidence': 0.0,
-                'error': f'Unsupported file type: {filename}'
-            }
-
-        import google.generativeai as genai
-
-        # Initialize the model (inside function, not at module level)
-        model = genai.GenerativeModel(MODEL_NAME)
-
-        # Prepare the file content for Gemini
-        # google-generativeai >= 0.5.0 accepts dict with mime_type + data (raw bytes)
-        file_part = {
-            'mime_type': mime_type,
-            'data': file_bytes
-        }
-
-        # OCR prompt — instructs Gemini to extract text faithfully
-        prompt = (
-            "Extract ALL text from this document image/PDF exactly as written. "
-            "Preserve the original formatting, numbers, dates, and special characters. "
-            "Do not summarize or interpret — just extract the raw text content. "
-            "If the document is in Hindi or a mix of Hindi and English, extract both. "
-            "At the end, on a new line, rate the image/document quality from 0 to 100 "
-            "in this exact format: QUALITY_SCORE: <number>"
-        )
-
-        # Call Gemini API
-        response = model.generate_content([prompt, file_part])
-
-        if response and response.text:
-            raw_output = response.text.strip()
-
-            # Parse quality score from response
-            text, confidence = _parse_quality_score(raw_output)
-
-            return {
-                'text': text.strip(),
-                'confidence': confidence,
-                'error': None
-            }
-        else:
-            return {
-                'text': '',
-                'confidence': 0.0,
-                'error': 'Gemini API returned empty response'
-            }
-
-    except Exception as e:
+    if mime_type is None:
         return {
             'text': '',
             'confidence': 0.0,
-            'error': f'OCR extraction failed: {str(e)}'
+            'error': f'Unsupported file type: {filename}'
         }
+
+    return _call_with_retry(file_bytes, mime_type)
+
+
+def _call_with_retry(file_bytes, mime_type, max_attempts=3):
+    """
+    Call Gemini API with exponential backoff retry on 429 rate-limit errors.
+    Attempts: 1st immediately, 2nd after 20s, 3rd after 40s.
+    """
+    import time
+    import google.generativeai as genai
+
+    model = genai.GenerativeModel(MODEL_NAME)
+    file_part = {'mime_type': mime_type, 'data': file_bytes}
+    prompt = (
+        "Extract ALL text from this document image/PDF exactly as written. "
+        "Preserve the original formatting, numbers, dates, and special characters. "
+        "Do not summarize or interpret — just extract the raw text content. "
+        "If the document is in Hindi or a mix of Hindi and English, extract both. "
+        "At the end, on a new line, rate the image/document quality from 0 to 100 "
+        "in this exact format: QUALITY_SCORE: <number>"
+    )
+
+    last_error = None
+    for attempt in range(1, max_attempts + 1):
+        try:
+            print(f"[OCR] API call attempt {attempt}/{max_attempts} (model: {MODEL_NAME})")
+            response = model.generate_content([prompt, file_part])
+
+            if response and response.text:
+                text, confidence = _parse_quality_score(response.text.strip())
+                return {'text': text.strip(), 'confidence': confidence, 'error': None}
+            else:
+                return {'text': '', 'confidence': 0.0, 'error': 'Gemini returned empty response'}
+
+        except Exception as e:
+            last_error = str(e)
+            is_rate_limit = '429' in last_error or 'RESOURCE_EXHAUSTED' in last_error
+
+            if is_rate_limit and attempt < max_attempts:
+                wait = 20 * attempt  # 20s, then 40s
+                print(f"[OCR] Rate limit hit — waiting {wait}s before retry...")
+                time.sleep(wait)
+            else:
+                break  # Non-retryable error or max attempts reached
+
+    # Return user-friendly message for rate limit errors
+    if last_error and ('429' in last_error or 'RESOURCE_EXHAUSTED' in last_error):
+        return {
+            'text': '',
+            'confidence': 0.0,
+            'error': 'RATE_LIMIT: Gemini API quota exceeded. Please wait 60 seconds and try again.'
+        }
+
+    return {'text': '', 'confidence': 0.0, 'error': f'OCR extraction failed: {last_error}'}
 
 
 def _detect_mime_type(filename):
