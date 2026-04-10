@@ -21,6 +21,7 @@ function RentRight() {
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
   const [showOcrText, setShowOcrText] = useState(false);
+  const [retryCountdown, setRetryCountdown] = useState(0);
 
   // Check localStorage for disclaimer acceptance
   useEffect(() => {
@@ -59,6 +60,7 @@ function RentRight() {
     setError(null);
     setProgressMessages([]);
     setProgressPercent(0);
+    setRetryCountdown(0);
   };
 
   const handleUpload = async () => {
@@ -69,6 +71,10 @@ function RentRight() {
     setResult(null);
     setProgressMessages([]);
     setProgressPercent(0);
+
+    // AbortController: cancel fetch after 2.5 min if Vite proxy drops it
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 150000);
 
     try {
       const formData = new FormData();
@@ -82,18 +88,37 @@ function RentRight() {
       const response = await fetch('/api/rent-right/upload', {
         method: 'POST',
         body: formData,
+        signal: controller.signal,
       });
 
+      clearTimeout(timeoutId);
       const data = await response.json();
 
       if (!response.ok) {
-        setError(data.error || 'An error occurred during analysis.');
+        if (response.status === 429) {
+          const waitSecs = data.retry_after || 60;
+          setError(data.error || '⏳ Rate limit hit. Please wait and retry.');
+          setRetryCountdown(waitSecs);
+          const interval = setInterval(() => {
+            setRetryCountdown(prev => {
+              if (prev <= 1) { clearInterval(interval); return 0; }
+              return prev - 1;
+            });
+          }, 1000);
+        } else {
+          setError(data.error || 'An error occurred during analysis.');
+        }
         return;
       }
 
       setResult(data);
     } catch (err) {
-      setError(`Network error: ${err.message}. Please ensure the backend is running.`);
+      clearTimeout(timeoutId);
+      if (err.name === 'AbortError') {
+        setError('Request timed out. The analysis took too long. Please try again.');
+      } else {
+        setError(`Network error: ${err.message}. Please ensure the backend is running.`);
+      }
     } finally {
       setIsProcessing(false);
     }
@@ -147,19 +172,50 @@ function RentRight() {
             </div>
           )}
 
-          {/* Error Display */}
+          {/* Error / Rate Limit Display */}
           {error && (
-            <div style={{
-              marginTop: 'var(--space-xl)',
-              padding: 'var(--space-lg)',
-              background: 'rgba(239, 68, 68, 0.1)',
-              border: '1px solid rgba(239, 68, 68, 0.3)',
-              borderRadius: 'var(--radius-md)',
-              color: 'var(--danger-400)',
-              textAlign: 'center',
-            }}>
-              <p style={{ fontSize: '1.1rem', fontWeight: 600 }}>❌ {error}</p>
-            </div>
+            retryCountdown > 0 ? (
+              <div style={{
+                marginTop: 'var(--space-xl)',
+                padding: 'var(--space-lg)',
+                background: 'rgba(251, 191, 36, 0.1)',
+                border: '1px solid rgba(251, 191, 36, 0.4)',
+                borderRadius: 'var(--radius-md)',
+                textAlign: 'center',
+              }}>
+                <p style={{ fontSize: '1.4rem', marginBottom: '8px' }}>⏳</p>
+                <p style={{ fontSize: '1.1rem', fontWeight: 700, color: '#fbbf24' }}>AI quota limit hit — please wait</p>
+                <p style={{ fontSize: '2.5rem', fontWeight: 800, color: '#fbbf24', margin: '12px 0' }}>
+                  {retryCountdown}s
+                </p>
+                <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
+                  The free tier resets every minute. You can retry when the timer reaches 0.
+                </p>
+              </div>
+            ) : retryCountdown === 0 && error.startsWith('⏳') ? (
+              <div style={{
+                marginTop: 'var(--space-xl)',
+                padding: 'var(--space-lg)',
+                background: 'rgba(52, 211, 153, 0.1)',
+                border: '1px solid rgba(52, 211, 153, 0.4)',
+                borderRadius: 'var(--radius-md)',
+                textAlign: 'center',
+              }}>
+                <p style={{ fontSize: '1.1rem', fontWeight: 700, color: '#34d399' }}>✅ Ready to retry! Click "Scan Agreement" again.</p>
+              </div>
+            ) : (
+              <div style={{
+                marginTop: 'var(--space-xl)',
+                padding: 'var(--space-lg)',
+                background: 'rgba(239, 68, 68, 0.1)',
+                border: '1px solid rgba(239, 68, 68, 0.3)',
+                borderRadius: 'var(--radius-md)',
+                color: 'var(--danger-400)',
+                textAlign: 'center',
+              }}>
+                <p style={{ fontSize: '1.1rem', fontWeight: 600 }}>❌ {error}</p>
+              </div>
+            )
           )}
         </div>
 

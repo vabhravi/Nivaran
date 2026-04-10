@@ -14,7 +14,7 @@ import sqlite3
 # ───────────────────────────────────────────────────────
 # Database path
 # ───────────────────────────────────────────────────────
-DATABASE_PATH = os.path.join(os.path.dirname(__file__), '..', 'database', 'rules.db')
+DATABASE_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'database', 'rules.db'))
 
 # Severity weights for risk score calculation
 SEVERITY_WEIGHTS = {

@@ -9,6 +9,8 @@ export default defineConfig({
       '/api': {
         target: 'http://localhost:5000',
         changeOrigin: true,
+        timeout: 180000,       // 3 minutes — accommodates Gemini retry logic
+        proxyTimeout: 180000,
       },
       '/audio': {
         target: 'http://localhost:5000',

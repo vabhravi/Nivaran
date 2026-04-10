@@ -60,8 +60,16 @@ def upload_rental_agreement():
         ocr_result = extract_text_from_file(file_bytes, filename)
 
         if ocr_result['error']:
+            error_msg = ocr_result['error']
+            if error_msg.startswith('RATE_LIMIT:'):
+                _emit_progress(sid, 'error', '⏳ API limit hit — please wait 60 seconds and try again.', 100)
+                return jsonify({
+                    'error': '⏳ The AI is busy right now. Please wait 60 seconds and upload again.',
+                    'suggestion': 'This is a temporary rate limit on the free tier. It resets every minute.',
+                    'retry_after': 60
+                }), 429
             return jsonify({
-                'error': f'OCR failed: {ocr_result["error"]}',
+                'error': f'OCR failed: {error_msg}',
                 'suggestion': 'Please upload a clearer image or PDF of your rental agreement.'
             }), 422
 
@@ -150,13 +158,19 @@ def upload_rental_agreement():
 
 
 def _get_risk_level(score):
-    """Map risk score to RED/AMBER/GREEN level."""
-    if score <= 4:
-        return 'RED'
-    elif score <= 7:
+    """
+    Map risk score to risk level.
+    Score is out of 10 where 10 = safest, 0 = most risky.
+    GREEN = 8-10 (low risk, compliant)
+    AMBER = 5-7  (moderate risk, some concerns)
+    RED   = 0-4  (high risk, serious violations)
+    """
+    if score >= 8:
+        return 'GREEN'
+    elif score >= 5:
         return 'AMBER'
     else:
-        return 'GREEN'
+        return 'RED'
 
 
 def _emit_progress(sid, stage, message, percent):
