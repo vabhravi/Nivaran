@@ -46,7 +46,7 @@ def upload_rental_agreement():
     if file.filename == '':
         return jsonify({'error': 'Empty filename. Please select a valid file.'}), 400
 
-    # Get Socket.IO session ID for progress updates
+    # Get Socket.IO session ID BEFORE try block so it's available in except
     sid = request.form.get('sid', None)
 
     try:
@@ -68,6 +68,7 @@ def upload_rental_agreement():
                     'suggestion': 'This is a temporary rate limit on the free tier. It resets every minute.',
                     'retry_after': 60
                 }), 429
+            _emit_progress(sid, 'error', f'OCR failed: {error_msg}', 100)
             return jsonify({
                 'error': f'OCR failed: {error_msg}',
                 'suggestion': 'Please upload a clearer image or PDF of your rental agreement.'
@@ -77,6 +78,7 @@ def upload_rental_agreement():
         confidence = ocr_result['confidence']
 
         if not raw_text.strip():
+            _emit_progress(sid, 'error', 'No text could be extracted from this document.', 100)
             return jsonify({
                 'error': 'No text could be extracted from the document.',
                 'suggestion': 'The document may be blank or the image quality is too low.'
@@ -91,13 +93,13 @@ def upload_rental_agreement():
 
         # Build a readable summary of what was found
         found_items = []
-        if entities['rent_amount']:
+        if entities.get('rent_amount'):
             found_items.append(f"Rent: ₹{entities['rent_amount']:,.0f}")
-        if entities['deposit_amount']:
+        if entities.get('deposit_amount'):
             found_items.append(f"Deposit: ₹{entities['deposit_amount']:,.0f}")
-        if entities['lock_in_period']:
+        if entities.get('lock_in_period'):
             found_items.append(f"Lock-in: {entities['lock_in_period']} months")
-        if entities['notice_period']:
+        if entities.get('notice_period'):
             found_items.append(f"Notice: {entities['notice_period']} days")
 
         entities_msg = f"Found: {', '.join(found_items)}" if found_items else "Extracting clause details..."
@@ -106,17 +108,13 @@ def upload_rental_agreement():
         # ─── Stage 3: Rule Engine ─────────────────────
         _emit_progress(sid, 'rules', 'Checking against Model Tenancy Act, 2021...', 60)
 
-        # Simulate per-clause scanning progress
         rule_result = evaluate_rental_agreement(entities)
 
         # Emit per-clause findings
         for i, clause in enumerate(rule_result['flagged_clauses']):
             pct = 60 + int((i + 1) / max(len(rule_result['flagged_clauses']), 1) * 25)
             severity_emoji = {
-                'CRITICAL': '🔴',
-                'HIGH': '🟠',
-                'MEDIUM': '🟡',
-                'LOW': '🟢'
+                'CRITICAL': '🔴', 'HIGH': '🟠', 'MEDIUM': '🟡', 'LOW': '🟢'
             }.get(clause['severity'], '⚪')
             _emit_progress(
                 sid, 'rule_check',
@@ -127,7 +125,7 @@ def upload_rental_agreement():
         if not rule_result['flagged_clauses']:
             _emit_progress(sid, 'rule_check', '✅ No major violations found in the agreement.', 85)
 
-        # ─── Stage 4: Risk Score Calculation ──────────
+        # ─── Stage 4: Risk Score ──────────────────────
         risk_score = rule_result['risk_score']
         risk_level = _get_risk_level(risk_score)
 
@@ -137,7 +135,6 @@ def upload_rental_agreement():
             100
         )
 
-        # ─── Remove raw_entities from response (internal data) ──
         entities_clean = {k: v for k, v in entities.items() if k != 'raw_entities'}
 
         return jsonify({
@@ -153,8 +150,15 @@ def upload_rental_agreement():
         }), 200
 
     except Exception as e:
-        _emit_progress(sid, 'error', f'Analysis failed: {str(e)}', 100)
-        return jsonify({'error': f'An unexpected error occurred: {str(e)}'}), 500
+        import traceback
+        tb = traceback.format_exc()
+        print(f"[RENT-RIGHT] UNHANDLED EXCEPTION:\n{tb}")
+        error_msg = f'Analysis failed: {str(e)}'
+        _emit_progress(sid, 'error', error_msg, 100)
+        return jsonify({
+            'error': error_msg,
+            'suggestion': 'An unexpected error occurred. Check the backend terminal logs for details.'
+        }), 500
 
 
 def _get_risk_level(score):
