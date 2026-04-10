@@ -21,6 +21,7 @@ function CivicEase() {
   const [error, setError] = useState(null);
   const [showOcrText, setShowOcrText] = useState(false);
   const [retryCountdown, setRetryCountdown] = useState(0);
+  const [demoMode, setDemoMode] = useState(false);
 
   // Check localStorage for disclaimer acceptance
   useEffect(() => {
@@ -71,28 +72,50 @@ function CivicEase() {
     setProgressMessages([]);
     setProgressPercent(0);
 
+    // Demo mode: fast local route, no Gemini API
+    if (demoMode) {
+      try {
+        setProgressMessages(['⚡ Demo Mode: Running local AI analysis...']);
+        setProgressPercent(30);
+        const formData = new FormData();
+        formData.append('document', selectedFile);
+        formData.append('mode', 'civic');
+        const res = await fetch('/api/demo/scan', { method: 'POST', body: formData });
+        const data = await res.json();
+        setProgressPercent(100);
+        if (!res.ok) { setError(data.error || 'Demo scan failed.'); return; }
+        setResult(data);
+      } catch (err) {
+        setError(`Demo mode error: ${err.message}`);
+      } finally {
+        setIsProcessing(false);
+      }
+      return;
+    }
+
+    // Standard mode: Gemini API
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 150000);
+
     try {
       const formData = new FormData();
       formData.append('document', selectedFile);
-
-      // Include Socket.IO session ID for real-time progress
       const sid = getSocketId();
-      if (sid) {
-        formData.append('sid', sid);
-      }
+      if (sid) formData.append('sid', sid);
 
       const response = await fetch('/api/civic-ease/upload', {
         method: 'POST',
         body: formData,
+        signal: controller.signal,
       });
 
+      clearTimeout(timeoutId);
       const data = await response.json();
 
       if (!response.ok) {
         if (response.status === 429) {
           const waitSecs = data.retry_after || 60;
           setError(data.error || '⏳ Rate limit hit. Please wait and retry.');
-          // Start countdown timer
           setRetryCountdown(waitSecs);
           const interval = setInterval(() => {
             setRetryCountdown(prev => {
@@ -105,10 +128,14 @@ function CivicEase() {
         }
         return;
       }
-
       setResult(data);
     } catch (err) {
-      setError(`Network error: ${err.message}. Please ensure the backend is running.`);
+      clearTimeout(timeoutId);
+      if (err.name === 'AbortError') {
+        setError('Request timed out. Try Demo Mode for instant offline analysis.');
+      } else {
+        setError(`Network error: ${err.message}`);
+      }
     } finally {
       setIsProcessing(false);
     }
@@ -132,6 +159,28 @@ function CivicEase() {
               (Upload your government notice — hear a Hindi audio summary)
             </span>
           </p>
+          {/* Demo Mode Toggle */}
+          <button
+            onClick={() => setDemoMode(d => !d)}
+            id="demo-toggle-btn"
+            style={{
+              marginTop: '12px',
+              padding: '8px 20px',
+              borderRadius: '20px',
+              border: demoMode ? '2px solid #a78bfa' : '2px solid rgba(167,139,250,0.3)',
+              background: demoMode ? 'rgba(167,139,250,0.2)' : 'transparent',
+              color: demoMode ? '#a78bfa' : 'var(--text-secondary)',
+              cursor: 'pointer',
+              fontSize: '0.85rem',
+              fontWeight: 600,
+              transition: 'all 0.2s',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+            }}
+          >
+            ⚡ {demoMode ? 'Demo Mode ON (Local/Offline)' : 'Demo Mode OFF (Using Gemini AI)'}
+          </button>
         </header>
 
         {/* File Upload */}
@@ -150,8 +199,13 @@ function CivicEase() {
               id="upload-btn"
               style={{ fontSize: '1.2rem', padding: '18px 48px' }}
             >
-              📤 Jaanch Shuru Karein (Start Analysis)
+              {demoMode ? '⚡ Demo Scan (Instant)' : '📤 Jaanch Shuru Karein (Start Analysis)'}
             </button>
+            {demoMode && (
+              <p style={{ marginTop: '8px', fontSize: '0.8rem', color: '#a78bfa' }}>
+                ⚡ Local AI — zero API calls, works offline
+              </p>
+            )}
           </div>
         )}
 

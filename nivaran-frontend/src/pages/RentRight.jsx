@@ -22,6 +22,7 @@ function RentRight() {
   const [error, setError] = useState(null);
   const [showOcrText, setShowOcrText] = useState(false);
   const [retryCountdown, setRetryCountdown] = useState(0);
+  const [demoMode, setDemoMode] = useState(false);
 
   // Check localStorage for disclaimer acceptance
   useEffect(() => {
@@ -72,18 +73,36 @@ function RentRight() {
     setProgressMessages([]);
     setProgressPercent(0);
 
-    // AbortController: cancel fetch after 2.5 min if Vite proxy drops it
+    // Demo mode: fast local route, no Gemini API
+    if (demoMode) {
+      try {
+        setProgressMessages(['⚡ Demo Mode: Running local AI analysis...']);
+        setProgressPercent(30);
+        const formData = new FormData();
+        formData.append('document', selectedFile);
+        formData.append('mode', 'rent');
+        const res = await fetch('/api/demo/scan', { method: 'POST', body: formData });
+        const data = await res.json();
+        setProgressPercent(100);
+        if (!res.ok) { setError(data.error || 'Demo scan failed.'); return; }
+        setResult(data);
+      } catch (err) {
+        setError(`Demo mode error: ${err.message}`);
+      } finally {
+        setIsProcessing(false);
+      }
+      return;
+    }
+
+    // Standard mode: Gemini API route
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 150000);
 
     try {
       const formData = new FormData();
       formData.append('document', selectedFile);
-
       const sid = getSocketId();
-      if (sid) {
-        formData.append('sid', sid);
-      }
+      if (sid) formData.append('sid', sid);
 
       const response = await fetch('/api/rent-right/upload', {
         method: 'POST',
@@ -110,12 +129,11 @@ function RentRight() {
         }
         return;
       }
-
       setResult(data);
     } catch (err) {
       clearTimeout(timeoutId);
       if (err.name === 'AbortError') {
-        setError('Request timed out. The analysis took too long. Please try again.');
+        setError('Request timed out. Try Demo Mode for instant offline analysis.');
       } else {
         setError(`Network error: ${err.message}. Please ensure the backend is running.`);
       }
@@ -139,6 +157,28 @@ function RentRight() {
             Upload your rental agreement to scan for predatory clauses and
             legal violations under the Model Tenancy Act, 2021.
           </p>
+          {/* Demo Mode Toggle */}
+          <button
+            onClick={() => setDemoMode(d => !d)}
+            id="rent-demo-toggle-btn"
+            style={{
+              marginTop: '12px',
+              padding: '8px 20px',
+              borderRadius: '20px',
+              border: demoMode ? '2px solid #a78bfa' : '2px solid rgba(167,139,250,0.3)',
+              background: demoMode ? 'rgba(167,139,250,0.2)' : 'transparent',
+              color: demoMode ? '#a78bfa' : 'var(--text-secondary)',
+              cursor: 'pointer',
+              fontSize: '0.85rem',
+              fontWeight: 600,
+              transition: 'all 0.2s',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+            }}
+          >
+            ⚡ {demoMode ? 'Demo Mode ON (Local/Offline)' : 'Demo Mode OFF (Using Gemini AI)'}
+          </button>
         </header>
 
         {/* File Upload */}
@@ -157,8 +197,13 @@ function RentRight() {
                 onClick={handleUpload}
                 id="upload-btn"
               >
-                🔍 Scan Agreement
+                {demoMode ? '⚡ Demo Scan (Instant)' : '🔍 Scan Agreement'}
               </button>
+              {demoMode && (
+                <p style={{ marginTop: '8px', fontSize: '0.8rem', color: '#a78bfa' }}>
+                  ⚡ Local AI — zero API calls, works offline
+                </p>
+              )}
             </div>
           )}
 

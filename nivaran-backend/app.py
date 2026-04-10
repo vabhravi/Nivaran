@@ -73,9 +73,11 @@ def init_database():
 # ───────────────────────────────────────────────────────
 from routes.civic_ease import civic_ease_bp
 from routes.rent_right import rent_right_bp
+from routes.demo_route import demo_bp
 
 app.register_blueprint(civic_ease_bp, url_prefix='/api/civic-ease')
 app.register_blueprint(rent_right_bp, url_prefix='/api/rent-right')
+app.register_blueprint(demo_bp, url_prefix='/api/demo')
 
 
 # ───────────────────────────────────────────────────────
@@ -140,4 +142,5 @@ def handle_disconnect():
 if __name__ == '__main__':
     init_database()
     print("[NIVARAN] Starting server on http://localhost:5000")
-    socketio.run(app, host='0.0.0.0', port=5000, debug=True)
+    # allow_unsafe_werkzeug=True is needed for modern Werkzeug + SocketIO in development
+    socketio.run(app, host='0.0.0.0', port=5000, debug=True, allow_unsafe_werkzeug=True)
