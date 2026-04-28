@@ -1,26 +1,17 @@
 /**
- * NIVARAN — FileUploader Component
- * Drag-and-drop file upload with visual feedback.
- * Supports PDF, PNG, JPG, JPEG, WebP.
+ * NIVARAN — FileUploader Component (v2)
+ * Premium drag-and-drop file upload with animated borders,
+ * file type detection, and micro-animations.
  */
 
 import React, { useState, useRef } from 'react';
-
-const ALLOWED_TYPES = [
-  'application/pdf',
-  'image/png',
-  'image/jpeg',
-  'image/webp',
-  'image/gif',
-  'image/bmp',
-  'image/tiff',
-];
 
 const ALLOWED_EXTENSIONS = ['pdf', 'png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp', 'tiff', 'tif'];
 
 function FileUploader({ onFileSelect, disabled, acceptLabel }) {
   const [dragOver, setDragOver] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
+  const [justDropped, setJustDropped] = useState(false);
   const inputRef = useRef(null);
 
   const handleDragOver = (e) => {
@@ -28,7 +19,10 @@ function FileUploader({ onFileSelect, disabled, acceptLabel }) {
     if (!disabled) setDragOver(true);
   };
 
-  const handleDragLeave = () => setDragOver(false);
+  const handleDragLeave = (e) => {
+    e.preventDefault();
+    setDragOver(false);
+  };
 
   const handleDrop = (e) => {
     e.preventDefault();
@@ -37,8 +31,7 @@ function FileUploader({ onFileSelect, disabled, acceptLabel }) {
 
     const file = e.dataTransfer.files[0];
     if (file && isValidFile(file)) {
-      setSelectedFile(file);
-      onFileSelect(file);
+      selectFile(file);
     }
   };
 
@@ -51,9 +44,15 @@ function FileUploader({ onFileSelect, disabled, acceptLabel }) {
   const handleInputChange = (e) => {
     const file = e.target.files[0];
     if (file && isValidFile(file)) {
-      setSelectedFile(file);
-      onFileSelect(file);
+      selectFile(file);
     }
+  };
+
+  const selectFile = (file) => {
+    setSelectedFile(file);
+    setJustDropped(true);
+    onFileSelect(file);
+    setTimeout(() => setJustDropped(false), 600);
   };
 
   const isValidFile = (file) => {
@@ -67,9 +66,17 @@ function FileUploader({ onFileSelect, disabled, acceptLabel }) {
     return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
   };
 
+  const getFileIcon = (filename) => {
+    if (!filename) return '📄';
+    const ext = filename.split('.').pop().toLowerCase();
+    if (ext === 'pdf') return '📑';
+    if (['png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp'].includes(ext)) return '🖼️';
+    return '📄';
+  };
+
   return (
     <div
-      className={`file-uploader ${dragOver ? 'drag-over' : ''} ${disabled ? 'disabled' : ''}`}
+      className={`file-uploader-v2 ${dragOver ? 'drag-over' : ''} ${disabled ? 'disabled' : ''} ${justDropped ? 'just-dropped' : ''} ${selectedFile ? 'has-file' : ''}`}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
@@ -89,25 +96,47 @@ function FileUploader({ onFileSelect, disabled, acceptLabel }) {
         disabled={disabled}
       />
 
-      <span className="file-uploader-icon">📄</span>
-      <p className="file-uploader-text">
-        {acceptLabel || 'Drag & drop your document here, or click to browse'}
-      </p>
-      <p className="file-uploader-hint">
-        Supports: PDF, PNG, JPG, WebP &bull; Max 16 MB
-      </p>
+      {/* Animated border decoration */}
+      <div className="file-uploader-v2-border" />
 
-      {selectedFile && (
-        <div className="file-uploader-selected">
-          <span>📎</span>
-          <div>
-            <strong>{selectedFile.name}</strong>
-            <span style={{ marginLeft: '8px', color: 'var(--text-tertiary)', fontSize: '0.85rem' }}>
-              ({formatFileSize(selectedFile.size)})
-            </span>
-          </div>
-        </div>
-      )}
+      {/* Upload content */}
+      <div className="file-uploader-v2-content">
+        {selectedFile ? (
+          <>
+            <div className="file-uploader-v2-success">
+              <span className="file-uploader-v2-check">✓</span>
+            </div>
+            <div className="file-uploader-v2-file-info">
+              <span className="file-uploader-v2-file-icon">{getFileIcon(selectedFile.name)}</span>
+              <div>
+                <p className="file-uploader-v2-filename">{selectedFile.name}</p>
+                <p className="file-uploader-v2-filesize">{formatFileSize(selectedFile.size)}</p>
+              </div>
+            </div>
+            <p className="file-uploader-v2-change">Click to change file</p>
+          </>
+        ) : (
+          <>
+            <div className="file-uploader-v2-icon-wrap">
+              <span className="file-uploader-v2-icon">
+                {dragOver ? '📥' : '📄'}
+              </span>
+            </div>
+            <p className="file-uploader-v2-text">
+              {acceptLabel || 'Drop your rental agreement here, or click to browse'}
+            </p>
+            <p className="file-uploader-v2-hint">
+              Supports PDF, PNG, JPG, WebP &bull; Max 16 MB
+            </p>
+            <div className="file-uploader-v2-formats">
+              <span className="file-uploader-v2-format-tag">📑 PDF</span>
+              <span className="file-uploader-v2-format-tag">🖼️ PNG</span>
+              <span className="file-uploader-v2-format-tag">🖼️ JPG</span>
+              <span className="file-uploader-v2-format-tag">🖼️ WebP</span>
+            </div>
+          </>
+        )}
+      </div>
     </div>
   );
 }

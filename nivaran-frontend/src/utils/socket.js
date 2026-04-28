@@ -5,7 +5,8 @@
 
 import { io } from 'socket.io-client';
 
-const SOCKET_URL = 'http://localhost:5000';
+// Use Vite's environment variable or undefined to auto-detect current origin (uses Vite's proxy)
+const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || undefined;
 
 let socket = null;
 
