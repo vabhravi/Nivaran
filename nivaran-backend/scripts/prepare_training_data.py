@@ -377,7 +377,7 @@ size = 500
 
 [corpora.dev]
 @readers = "spacy.Corpus.v1"
-path = "${{paths.dev}}"
+path = ${{paths.dev}}
 max_length = 0
 gold_preproc = false
 limit = 0
@@ -385,7 +385,7 @@ augmenter = null
 
 [corpora.train]
 @readers = "spacy.Corpus.v1"
-path = "${{paths.train}}"
+path = ${{paths.train}}
 max_length = 0
 gold_preproc = false
 limit = 0
@@ -399,7 +399,7 @@ init_tok2vec = null
 """
 
     config_path = os.path.join(output_dir, f'{model_name}_config.cfg')
-    with open(config_path, 'w') as f:
+    with open(config_path, 'w', encoding='utf-8') as f:
         f.write(config_content)
     print(f"  ✅ Config saved to {config_path}")
 

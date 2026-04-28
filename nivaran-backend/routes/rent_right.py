@@ -3,8 +3,8 @@ NIVARAN — Rent-Right Route
 POST /api/rent-right/upload
 
 Handles rental agreement uploads for students/tenants.
-Flow: Upload → OCR (Gemini) → NER (SpaCy) → Rule Engine (SQLite) → Risk Score
-All processing is stateless — no documents are stored.
+Flow: Upload → OCR (EasyOCR/PyPDF2) → NER (SpaCy) → Rule Engine (SQLite) → Risk Score
+All processing is offline and stateless — no documents are stored, no APIs called.
 """
 
 from flask import Blueprint, request, jsonify
@@ -21,7 +21,7 @@ OCR_CONFIDENCE_THRESHOLD = 0.6
 @rent_right_bp.route('/upload', methods=['POST'])
 def upload_rental_agreement():
     """
-    Process a rental agreement document.
+    Process a rental agreement document (fully offline).
 
     Expects: multipart/form-data with file field 'document'
     Optional query param: sid (Socket.IO session ID for progress updates)
@@ -61,17 +61,10 @@ def upload_rental_agreement():
 
         if ocr_result['error']:
             error_msg = ocr_result['error']
-            if error_msg.startswith('RATE_LIMIT:'):
-                _emit_progress(sid, 'error', '⏳ API limit hit — please wait 60 seconds and try again.', 100)
-                return jsonify({
-                    'error': '⏳ The AI is busy right now. Please wait 60 seconds and upload again.',
-                    'suggestion': 'This is a temporary rate limit on the free tier. It resets every minute.',
-                    'retry_after': 60
-                }), 429
-            _emit_progress(sid, 'error', f'OCR failed: {error_msg}', 100)
+            _emit_progress(sid, 'error', f'Offline OCR failed: {error_msg}', 100)
             return jsonify({
                 'error': f'OCR failed: {error_msg}',
-                'suggestion': 'Please upload a clearer image or PDF of your rental agreement.'
+                'suggestion': 'Ensure the document is clear and readable. For scanned PDFs, upload as an image instead.'
             }), 422
 
         raw_text = ocr_result['text']

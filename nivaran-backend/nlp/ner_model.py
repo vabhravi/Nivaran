@@ -29,9 +29,14 @@ def _load_base_model():
     """Load the base SpaCy English model."""
     try:
         return spacy.load('en_core_web_sm')
-    except OSError:
-        print("[NIVARAN][WARNING] en_core_web_sm not found. Using blank English model.")
+    except Exception as e:
+        print(f"[NIVARAN][WARNING] Failed to load en_core_web_sm (Error: {e}). Using blank English model.")
         return spacy.blank('en')
+
+
+def _is_valid_spacy_model(path):
+    """Check if a directory contains a valid SpaCy model (has meta.json)."""
+    return os.path.isdir(path) and os.path.isfile(os.path.join(path, 'meta.json'))
 
 
 def get_civic_model():
@@ -39,12 +44,17 @@ def get_civic_model():
     global _civic_model
     if _civic_model is None:
         civic_path = os.path.join(MODEL_DIR, 'civic_notice_ner')
-        if os.path.exists(civic_path):
-            _civic_model = spacy.load(civic_path)
-            print("[NIVARAN] Loaded trained civic_notice_ner model.")
+        if _is_valid_spacy_model(civic_path):
+            try:
+                _civic_model = spacy.load(civic_path)
+                print("[NIVARAN] Loaded trained civic_notice_ner model.")
+            except Exception as e:
+                print(f"[NIVARAN][WARNING] Failed to load civic_notice_ner model: {e}")
+                _civic_model = _load_base_model()
+                print("[NIVARAN] Falling back to base model with regex for civic NER.")
         else:
             _civic_model = _load_base_model()
-            print("[NIVARAN] Using base model with regex fallback for civic NER.")
+            print("[NIVARAN] No trained civic_notice_ner model found — using base model with regex fallback.")
     return _civic_model
 
 
@@ -53,12 +63,17 @@ def get_rent_model():
     global _rent_model
     if _rent_model is None:
         rent_path = os.path.join(MODEL_DIR, 'rent_agreement_ner')
-        if os.path.exists(rent_path):
-            _rent_model = spacy.load(rent_path)
-            print("[NIVARAN] Loaded trained rent_agreement_ner model.")
+        if _is_valid_spacy_model(rent_path):
+            try:
+                _rent_model = spacy.load(rent_path)
+                print("[NIVARAN] Loaded trained rent_agreement_ner model.")
+            except Exception as e:
+                print(f"[NIVARAN][WARNING] Failed to load rent_agreement_ner model: {e}")
+                _rent_model = _load_base_model()
+                print("[NIVARAN] Falling back to base model with regex for rent NER.")
         else:
             _rent_model = _load_base_model()
-            print("[NIVARAN] Using base model with regex fallback for rent NER.")
+            print("[NIVARAN] No trained rent_agreement_ner model found — using base model with regex fallback.")
     return _rent_model
 
 

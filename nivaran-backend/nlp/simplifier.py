@@ -9,7 +9,23 @@ Includes Hindi number localization (e.g., 500 → "Paanch Sau").
 import os
 import uuid
 import re
-from gtts import gTTS
+import pyttsx3
+
+# Lazy-init pyttsx3 to avoid import-time crashes on headless systems
+_tts_engine = None
+
+
+def _get_tts_engine():
+    """Get or create the pyttsx3 engine (lazy singleton)."""
+    global _tts_engine
+    if _tts_engine is None:
+        try:
+            _tts_engine = pyttsx3.init()
+            print("[NIVARAN] pyttsx3 TTS engine initialized.")
+        except Exception as e:
+            print(f"[NIVARAN][WARNING] pyttsx3 init failed: {e}. Audio will be unavailable.")
+            return None
+    return _tts_engine
 
 # ───────────────────────────────────────────────────────
 # Audio output directory
@@ -253,11 +269,11 @@ def _translate_date(date_str):
 
 def generate_audio(text, lang='hi'):
     """
-    Generate an MP3 audio file from Hindi text using gTTS.
+    Generate an MP3 audio file from Hindi text using pyttsx3.
 
     Args:
-        text (str): The Hindi text (Roman transliteration works with gTTS 'hi').
-        lang (str): Language code for gTTS. Default 'hi' (Hindi).
+        text (str): The Hindi text.
+        lang (str): Language code.
 
     Returns:
         dict: {
@@ -271,9 +287,16 @@ def generate_audio(text, lang='hi'):
         audio_filename = f'nivaran_{uuid.uuid4().hex[:12]}.mp3'
         audio_path = os.path.join(AUDIO_DIR, audio_filename)
 
-        # Generate audio with gTTS
-        tts = gTTS(text=text, lang=lang, slow=False)
-        tts.save(audio_path)
+        # Generate audio with pyttsx3
+        engine = _get_tts_engine()
+        if engine is None:
+            return {
+                'audio_filename': None,
+                'audio_path': None,
+                'error': 'Text-to-speech engine is not available on this system.'
+            }
+        engine.save_to_file(text, audio_path)
+        engine.runAndWait()
 
         return {
             'audio_filename': audio_filename,
@@ -287,7 +310,6 @@ def generate_audio(text, lang='hi'):
             'audio_path': None,
             'error': f'Audio generation failed: {str(e)}'
         }
-
 
 def cleanup_audio_file(audio_path):
     """Delete an audio file after it has been served (stateless processing)."""

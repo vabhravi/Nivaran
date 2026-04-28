@@ -3,8 +3,8 @@ NIVARAN — Civic-Ease Route
 POST /api/civic-ease/upload
 
 Handles government notice uploads for elderly users.
-Flow: Upload → OCR (Gemini) → NER (SpaCy) → Hindi Summary → Audio (gTTS)
-All processing is stateless — no documents are stored.
+Flow: Upload → OCR (EasyOCR) → NER (SpaCy regex fallback) → Hindi Summary → Audio (pyttsx3)
+All processing is offline and stateless — no documents are stored, no APIs called.
 """
 
 import os
@@ -61,19 +61,9 @@ def upload_civic_document():
         ocr_result = extract_text_from_file(file_bytes, filename)
 
         if ocr_result['error']:
-            error_msg = ocr_result['error']
-
-            # User-friendly message for rate limit errors
-            if error_msg.startswith('RATE_LIMIT:'):
-                _emit_progress(sid, 'error', '⏳ API limit hit — please wait 60 seconds and try again.', 100)
-                return jsonify({
-                    'error': '⏳ The AI is busy right now. Please wait 60 seconds and upload again.',
-                    'suggestion': 'This is a temporary rate limit on the free tier. It resets every minute.',
-                    'retry_after': 60
-                }), 429
-
+            _emit_progress(sid, 'error', f'OCR failed: {ocr_result["error"]}', 100)
             return jsonify({
-                'error': f'OCR failed: {error_msg}',
+                'error': f'OCR failed: {ocr_result["error"]}',
                 'suggestion': 'Please upload a clearer image or PDF.'
             }), 422
 

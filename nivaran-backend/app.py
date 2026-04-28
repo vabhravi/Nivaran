@@ -12,8 +12,12 @@ from flask_cors import CORS
 from flask_socketio import SocketIO
 from dotenv import load_dotenv
 
-# Load environment variables from .env file (explicit path)
-load_dotenv(os.path.join(os.path.dirname(__file__), '.env'), override=True)
+# Load environment variables from root .env file
+root_env_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '.env'))
+if os.path.exists(root_env_path):
+    load_dotenv(root_env_path, override=True)
+else:
+    load_dotenv(os.path.join(os.path.dirname(__file__), '.env'), override=True)
 
 # ───────────────────────────────────────────────────────
 # App Initialization
@@ -30,8 +34,12 @@ os.makedirs(AUDIO_DIR, exist_ok=True)
 # CORS — Allow React dev server on port 3000
 # ───────────────────────────────────────────────────────
 CORS(app, resources={
-    r"/api/*": {"origins": ["http://localhost:3000", "http://127.0.0.1:3000"]},
-    r"/audio/*": {"origins": ["http://localhost:3000", "http://127.0.0.1:3000"]},
+    r"/api/*": {"origins": ["http://localhost:3000", "http://127.0.0.1:3000",
+                            "http://localhost:3001", "http://127.0.0.1:3001",
+                            "http://localhost:5173", "http://127.0.0.1:5173"]},
+    r"/audio/*": {"origins": ["http://localhost:3000", "http://127.0.0.1:3000",
+                              "http://localhost:3001", "http://127.0.0.1:3001",
+                              "http://localhost:5173", "http://127.0.0.1:5173"]},
 })
 
 # ───────────────────────────────────────────────────────
@@ -39,7 +47,9 @@ CORS(app, resources={
 # ───────────────────────────────────────────────────────
 socketio = SocketIO(
     app,
-    cors_allowed_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
+    cors_allowed_origins=["http://localhost:3000", "http://127.0.0.1:3000",
+                          "http://localhost:3001", "http://127.0.0.1:3001",
+                          "http://localhost:5173", "http://127.0.0.1:5173"],
     logger=False,
     engineio_logger=False
 )
@@ -56,16 +66,30 @@ def init_database():
     db_dir = os.path.dirname(DATABASE_PATH)
     os.makedirs(db_dir, exist_ok=True)
 
+    needs_init = False
     if not os.path.exists(DATABASE_PATH) or os.path.getsize(DATABASE_PATH) == 0:
+        needs_init = True
+    else:
+        # Verify the schema has the expected tables and seed data
+        try:
+            conn = sqlite3.connect(DATABASE_PATH)
+            count = conn.execute('SELECT COUNT(*) FROM legal_rules').fetchone()[0]
+            conn.close()
+            if count == 0:
+                needs_init = True
+        except Exception:
+            needs_init = True
+
+    if needs_init:
         print("[NIVARAN] Initializing database from schema.sql...")
         conn = sqlite3.connect(DATABASE_PATH)
-        with open(SCHEMA_PATH, 'r') as f:
+        with open(SCHEMA_PATH, 'r', encoding='utf-8') as f:
             conn.executescript(f.read())
         conn.commit()
         conn.close()
         print("[NIVARAN] Database initialized successfully.")
     else:
-        print("[NIVARAN] Database already exists, skipping initialization.")
+        print("[NIVARAN] Database verified, skipping initialization.")
 
 
 # ───────────────────────────────────────────────────────
@@ -108,7 +132,9 @@ def health_check():
 def debug_env():
     """Temporary endpoint to verify API key is loaded."""
     from dotenv import load_dotenv, find_dotenv
-    env_path = os.path.join(os.path.dirname(__file__), '.env')
+    env_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '.env'))
+    if not os.path.exists(env_path):
+        env_path = os.path.join(os.path.dirname(__file__), '.env')
     load_dotenv(env_path, override=True)
     key = os.getenv('GEMINI_API_KEY') or os.getenv('GOOGLE_API_KEY') or 'NOT FOUND'
     env_exists = os.path.exists(env_path)

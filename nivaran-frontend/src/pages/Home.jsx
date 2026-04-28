@@ -92,7 +92,7 @@ function Home() {
           }}>
             {[
               { icon: '📄', title: 'Upload', desc: 'Drop your document — PDF or image' },
-              { icon: '🔍', title: 'Extract', desc: 'Gemini Flash OCR reads the text' },
+              { icon: '🔍', title: 'Extract', desc: 'EasyOCR reads the text offline' },
               { icon: '🧠', title: 'Analyze', desc: 'SpaCy NER + Rule Engine audits it' },
               { icon: '✅', title: 'Result', desc: 'Get actionable, explainable output' },
             ].map((step, i) => (
